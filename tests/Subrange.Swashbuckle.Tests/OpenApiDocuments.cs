@@ -4,9 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
+using Subranges;
 using Swashbuckle.AspNetCore.Swagger;
 
-namespace Subranges.Swashbuckle.Tests;
+// Outside the Subranges namespaces, so AddSubrangesToSwaggerGen is only found the way an
+// application finds it.
+namespace Subrange.Swashbuckle.Tests;
 
 [Subrange<int>(1, 65535)]
 public sealed partial record Port;

@@ -1,6 +1,6 @@
 # Subrange
 
-A number type that only holds values within its bounds. A value outside them is rejected, never clamped.
+A number type that only holds values within its bounds. A value outside them is rejected, never clamped. Check a number once where it enters your application, and no code after that has to remember its bounds.
 
 ```bash
 dotnet add package Subrange
@@ -29,12 +29,4 @@ app.MapGet("/items", (PageSize pageSize) => pageSize.Value); // ?pageSize=500 is
 
 ## OpenAPI
 
-```bash
-dotnet add package Subrange.Swashbuckle
-```
-
-```csharp
-builder.Services.AddSubrangesToSwaggerGen();
-```
-
-Every subrange type is documented as the `integer` or `number` it is on the wire, with its `minimum` and `maximum`.
+[Subrange.Swashbuckle](https://www.nuget.org/packages/Subrange.Swashbuckle) documents every subrange type in Swashbuckle's OpenAPI schemas, with its bounds.

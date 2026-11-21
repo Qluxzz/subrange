@@ -38,7 +38,7 @@ internal static class SubrangeRules
     public static readonly DiagnosticDescriptor UnsupportedValueType = new(
         "SR0003",
         "Subrange value type is not supported",
-        "'{0}' is a subrange of '{1}', but only number types with constant MinValue and MaxValue are supported, such as int, long, double and decimal",
+        "'{0}' is a subrange of '{1}', but only built-in number types such as int, long, double and decimal are supported, not char, Int128, Half or nint",
         _category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -47,7 +47,7 @@ internal static class SubrangeRules
     public static readonly DiagnosticDescriptor InvalidBounds = new(
         "SR0004",
         "Subrange bounds are invalid",
-        "'{0}' must have finite bounds where min <= max, both within '{1}', and whole numbers no larger than 2^53 in magnitude if '{1}' is an integer type, since the bounds are written as doubles",
+        "'{0}' must have finite bounds where min <= max, both within '{1}' and stored by it unchanged, and whole numbers no larger than 2^53 in magnitude if '{1}' is an integer type, since the bounds are written as doubles",
         _category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -91,9 +91,10 @@ internal static class SubrangeRules
     /// bound isn't valid for it. Null when the value type isn't supported.
     /// </summary>
     /// <remarks>
-    /// Supported types are those whose <c>MinValue</c> and <c>MaxValue</c> are constants, which the
-    /// build can check bounds against: every built-in number type except <c>char</c>, and not
-    /// <c>Int128</c>, <c>Half</c> or <c>nint</c>, whose limits are properties.
+    /// Supported types are those whose <c>MinValue</c> and <c>MaxValue</c> are constants of the
+    /// type itself, which the build reads to check the bounds. C# only allows constants of built-in
+    /// types, so these are the built-in number types, except <c>char</c>, which isn't used as a
+    /// number, and <c>Int128</c>, <c>Half</c> and <c>nint</c>, whose limits are properties.
     /// </remarks>
     public static (string ValueType, string? MinText, string? MaxText)? Bounds(
         AttributeData attribute
@@ -123,7 +124,10 @@ internal static class SubrangeRules
         string? Text(double value) =>
             double.IsNaN(value) || double.IsInfinity(value) || value < lowest || value > highest
                 ? null
-            : !isInteger ? value.ToString("R", CultureInfo.InvariantCulture)
+            : !isInteger
+                ? SurvivesAs(valueType.SpecialType, value)
+                        ? value.ToString("R", CultureInfo.InvariantCulture)
+                    : null
             // A double holds every whole number up to 2^53 exactly; past that, the bound the
             // build sees may not be the one that was written.
             : Math.Floor(value) == value && Math.Abs(value) <= _largestExactInteger
@@ -135,10 +139,42 @@ internal static class SubrangeRules
 
     private const double _largestExactInteger = 9007199254740992;
 
+    /// <summary>
+    /// Whether the value type stores the bound as written. The generated code parses the bound's
+    /// text into the value type, and a type with less range or precision than a double would
+    /// otherwise move it silently: 1e-29 becomes 0 as a decimal, and 16777217 becomes 16777216
+    /// as a float. The parser would then accept values outside the declared bounds.
+    /// </summary>
+    private static bool SurvivesAs(SpecialType valueType, double bound)
+    {
+        var text = bound.ToString("R", CultureInfo.InvariantCulture);
+        var stored = valueType switch
+        {
+            SpecialType.System_Single => float.Parse(
+                    text,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture
+                )
+                .ToString("R", CultureInfo.InvariantCulture),
+            SpecialType.System_Decimal => decimal.Parse(
+                    text,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture
+                )
+                .ToString(CultureInfo.InvariantCulture),
+            _ => text,
+        };
+        return double.Parse(stored, NumberStyles.Float, CultureInfo.InvariantCulture) == bound;
+    }
+
     private static double? Limit(ITypeSymbol type, string name) =>
         type.GetMembers(name)
             .OfType<IFieldSymbol>()
-            .FirstOrDefault(field => field.IsStatic && field.HasConstantValue)
+            .FirstOrDefault(field =>
+                field.IsStatic
+                && field.HasConstantValue
+                && SymbolEqualityComparer.Default.Equals(field.Type, type)
+            )
             ?.ConstantValue
             is { } value
             ? Convert.ToDouble(value, CultureInfo.InvariantCulture)

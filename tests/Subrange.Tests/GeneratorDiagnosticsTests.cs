@@ -141,6 +141,40 @@ public class GeneratorDiagnosticsTests
             public sealed partial record BeyondDecimal;
             """
     )]
+    [InlineData(
+        "SR0004",
+        """
+            [Subrange<decimal>(1e-29, 1)]
+            public sealed partial record BelowDecimalPrecision;
+            """
+    )]
+    [InlineData(
+        "SR0004",
+        """
+            [Subrange<float>(0, 16_777_217)]
+            public sealed partial record BeyondFloatPrecision;
+            """
+    )]
+    [InlineData(
+        "SR0004",
+        """
+            [Subrange<float>(1e-50, 1)]
+            public sealed partial record BelowFloatRange;
+            """
+    )]
+    [InlineData(
+        "SR0003",
+        """
+            public readonly struct Score
+            {
+                public const int MinValue = 0;
+                public const int MaxValue = 100;
+            }
+
+            [Subrange<Score>(0, 10)]
+            public sealed partial record HighScore;
+            """
+    )]
     public async Task MisshapenTypes_AreACompileError(string expectedId, string source)
     {
         var diagnostics = await Compile($"using Subranges;\n{source}");
@@ -193,6 +227,12 @@ public class GeneratorDiagnosticsTests
 
             [Subrange<decimal>(0.01, 1e20)]
             public sealed partial record FineDecimal;
+
+            [Subrange<decimal>(0.0001, 0.12345678901234568)]
+            public sealed partial record FineSmallDecimal;
+
+            [Subrange<float>(0.1, 16_777_216)]
+            public sealed partial record FineFloatBounds;
             """
         );
 

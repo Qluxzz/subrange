@@ -12,7 +12,7 @@ dotnet test                                  # builds and runs every test projec
 dotnet test --project tests/Subrange.Tests   # one project; a bare directory argument no longer works
 ```
 
-CI (`.github/workflows/ci.yml`) runs exactly these checks. Publishing a GitHub release runs `publish.yml`, which calls `ci.yml`, so a check added there gates releases too, then packs each package with the release's tag as the version and pushes it to nuget.org. Packages are only built there, so `publish.yml` is the one list of what ships: a new package needs a `dotnet pack` line there, and a change to packaging should be tried locally with `dotnet pack` before it's released. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Packages are versioned centrally in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`.
+CI (`.github/workflows/ci.yml`) runs exactly these checks. Publishing a GitHub release runs `publish.yml`, which calls `ci.yml`, so a check added there gates releases too, then packs each package with the release's tag as the version and pushes it to nuget.org. Packages are only built there, so `publish.yml` is the one list of what ships: a new package needs a `dotnet pack` line there, and a change to packaging should be tried locally with `dotnet pack` before it's released. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Dependency versions are central in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`. The version of the packages this repo ships comes from the release tag.
 
 While iterating, run the narrowest test project. Before finishing, run the full `dotnet test` and `csharpier check .`. **Report what you didn't run** instead of implying the work is verified.
 
@@ -41,7 +41,7 @@ These are settled; don't reopen them without a new reason.
 
 - **A `sealed record`, not a struct.** A struct always has a `default` value that skips any constructor, so a struct type could hold a value nobody checked. The cost is one small allocation per value, which the GC makes cheap for short-lived values.
 - **When a subrange fits.** A value whose valid range is fixed and doesn't depend on any other value: page sizes, coordinates, percentages, protocol limits like a Modbus device address (1 to 247). Not a value whose range depends on another one: a day of the month is 1 to 31 only in some months, so it belongs in a type that models the whole date.
-- **Any number type the build can check.** Supported value types are found through generic math, not listed: a type implementing `INumber<T>` whose `MinValue` and `MaxValue` are constants, which the build reads to check the bounds. Types whose limits are properties (`Int128`, `Half`, `nint`) can't be checked at build time, so they're rejected rather than checked at runtime. The generated code calls the number's members through private generic helpers, so types that implement them explicitly work too.
+- **The built-in number types.** Supported value types are found through generic math rather than listed: a type implementing `INumber<T>` whose `MinValue` and `MaxValue` are constants of the type itself, which the build reads to check the bounds. C# only allows constants of built-in types, so in practice these are the built-in number types: every one except `char`, which isn't used as a number, and `Int128`, `Half` and `nint`, whose limits are properties the build can't read. The generated code calls the number's members through private generic helpers, so types that implement them explicitly work too.
 - **Bounds are doubles.** An attribute can't take a `TValue` argument. A double holds every whole number up to 2^53 exactly, so integer bounds beyond that are rejected rather than silently rounded. Fractional bounds become the shortest text that round-trips the double, which is what was written for anything up to 15 significant digits, so `[Subrange<decimal>(0.01, 1000)]` has a `Min` of exactly `0.01m`.
 - **Naming.** The term comes from Pascal and Ada (`type Percent = 0..100`). The package is `Subrange` and the namespace `Subranges`, like `StronglyTypedId` and `StronglyTypedIds`: a namespace and a type in it shouldn't share a name (CA1724).
 - **The READMEs are for users.** Each package has its own, packed into it, showing how it works and how to install it, assuming it is on NuGet. Reasoning, diagnostics and contributor details belong here.
@@ -83,7 +83,7 @@ Every new `SR` code needs a test in `GeneratorDiagnosticsTests` that triggers it
 |---|---|
 | `SR0001` | The type must be a top-level, non-generic `sealed partial record` |
 | `SR0002` | The type must not declare a constructor or primary constructor |
-| `SR0003` | The value type must be a number type with constant `MinValue` and `MaxValue`: every built-in one except `char`, and not `Int128`, `Half` or `nint` |
+| `SR0003` | The value type must be a built-in number type, other than `char`, `Int128`, `Half` or `nint` |
 | `SR0004` | Bounds must be finite, `min <= max`, within the value type, and for integer types whole numbers no larger than 2^53 in magnitude |
 
 # Packaging
@@ -99,7 +99,7 @@ The generator is built against Roslyn 5.0, so consumers need the .NET 10 SDK or 
 
 - **Read before you write.** Look at the existing implementation, its tests and the package's README before changing behaviour.
 - **Make the smallest coherent change.** If you spot something worth fixing elsewhere, mention it rather than folding it in.
-- **Update each affected package's README in the same change** as any behaviour change. They are the spec users read, and their examples must compile as written, with only the `using` lines they show. Public extension methods live in the namespace of the type they extend (`Microsoft.Extensions.DependencyInjection` for `IServiceCollection`), so examples need no extra `using`.
+- **Update each affected package's README in the same change** as any behaviour change. They are the spec users read. Their examples introduce the API rather than form complete programs: they must be valid C# syntax and use the API as it really is, but they may be ordered for reading, such as declaring a type before the code that uses it. Public extension methods live in the namespace of the type they extend (`Microsoft.Extensions.DependencyInjection` for `IServiceCollection`), so examples need no extra `using`.
 - **A function's name has to earn the jump.** Inline single-use helpers unless the name tells the reader something the code doesn't, or isolates an invariant.
 
 # Tests

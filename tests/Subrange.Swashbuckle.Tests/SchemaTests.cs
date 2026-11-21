@@ -1,6 +1,6 @@
 using Microsoft.OpenApi;
 
-namespace Subranges.Swashbuckle.Tests;
+namespace Subrange.Swashbuckle.Tests;
 
 /// <summary>
 /// Every subrange type must be documented as the number it is on the wire, with the bounds a

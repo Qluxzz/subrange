@@ -17,4 +17,4 @@ A type like `[Subrange<int>(1, 100)] PageSize` is then documented as:
 { "type": "integer", "format": "int32", "minimum": 1, "maximum": 100 }
 ```
 
-The format comes from the value type: `int32`, `int64`, `float`, `double` or `decimal`. Every subrange type is documented inline wherever it appears, in route, query and body values, from any assembly, so there's nothing to register per type. A mapping you add yourself with `MapType<T>` takes precedence.
+For the built-in number types, the format comes from the value type: `int32`, `int64`, `float`, `double` or `decimal`. Every subrange type is documented inline wherever it appears, in route, query and body values, from any assembly, so there's nothing to register per type. A mapping you add yourself with `MapType<T>` takes precedence.
