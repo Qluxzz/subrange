@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Nullable.Extended.Analyzer" Version="1.19.0" />
+    <!--
+      Subrange.Generators. Must not be newer than the compiler in the SDK pinned by
+      global.json, or the generator fails to load. SDK 10.0.1xx ships Roslyn 5.0.
+    -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <!--
+      Subrange.Swashbuckle. 10.x is built on Microsoft.OpenApi 2.x, which is what
+      Microsoft.AspNetCore.OpenApi 10.x allows; 11.x moves to Microsoft.OpenApi 3.x.
+    -->
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.3.1" />
+    <!-- Tests -->
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Nullable.Extended.Analyzer": {
+        "type": "Direct",
+        "requested": "[1.19.0, )",
+        "resolved": "1.19.0",
+        "contentHash": "SZf443/kZxsgQh+n3gr0WmwHY2Tq6FTM9Ai4GVddXHELkabx5LjdwrbGReI9XsEkm9GwH91dM7nUz8qb57BZ/g=="
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Subrange</PackageId>
+    <RootNamespace>Subranges</RootNamespace>
+    <Authors>Qluxzz</Authors>
+    <Description>Subrange types for .NET: a number type that only holds values within its bounds, generated from a [Subrange] declaration, whose only constructor is private so every value has been checked.</Description>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    The generator is shipped inside this package so one PackageReference brings both the runtime
+    types and the generator, and NuGet flows the analyzer to every project that references it.
+    A ProjectReference does not flow analyzers, so a project referencing this one directly
+    (like Subrange.Tests) must also reference Subrange.Generators as an analyzer.
+  -->
+  <ItemGroup>
+    <ProjectReference
+      Include="..\Subrange.Generators\Subrange.Generators.csproj"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+    <None
+      Include="..\Subrange.Generators\bin\$(Configuration)\netstandard2.0\Subrange.Generators.dll"
+      Pack="true"
+      PackagePath="analyzers/dotnet/cs"
+      Visible="false"
+    />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>

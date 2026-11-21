@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Subrange/Subrange.csproj" />
+    <Project Path="src/Subrange.Generators/Subrange.Generators.csproj" />
+    <Project Path="src/Subrange.Swashbuckle/Subrange.Swashbuckle.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Subrange.Tests/Subrange.Tests.csproj" />
+    <Project Path="tests/Subrange.AspNetCore.Tests/Subrange.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Subrange.Swashbuckle.Tests/Subrange.Swashbuckle.Tests.csproj" />
+  </Folder>
+</Solution>

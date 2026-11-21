@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Subrange.Swashbuckle</PackageId>
+    <RootNamespace>Subranges.Swashbuckle</RootNamespace>
+    <Authors>Qluxzz</Authors>
+    <Description>Documents Subrange types in Swashbuckle OpenAPI schemas as the integers and numbers they are on the wire, with their minimum and maximum.</Description>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Passes the generator on too: a host referencing only this package can still declare subranges -->
+    <ProjectReference Include="..\Subrange\Subrange.csproj" PrivateAssets="none" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>
