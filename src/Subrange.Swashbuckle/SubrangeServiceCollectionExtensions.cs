@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Numerics;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
@@ -13,7 +14,7 @@ public static class SubrangeServiceCollectionExtensions
 {
     /// <summary>
     /// Documents every <see cref="SubrangeAttribute{TValue}"/> type as the number it is on the
-    /// wire: an integer or number with its minimum and maximum. Types are recognised as
+    /// wire: an integer or number with its format, minimum and maximum. Types are recognised as
     /// Swashbuckle meets them, from any assembly, so nothing has to be listed.
     /// </summary>
     /// <remarks>
@@ -43,15 +44,25 @@ public static class SubrangeServiceCollectionExtensions
             return null;
 
         var valueType = subrange.GetType().GetGenericArguments()[0];
-        var isInteger = valueType != typeof(double);
+        var isInteger = valueType
+            .GetInterfaces()
+            .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IBinaryInteger<>));
         var minimum = Bound(subrange, nameof(SubrangeAttribute<int>.Min), isInteger);
         var maximum = Bound(subrange, nameof(SubrangeAttribute<int>.Max), isInteger);
+        var format = Type.GetTypeCode(valueType) switch
+        {
+            TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 => "int64",
+            _ when isInteger => "int32",
+            TypeCode.Single => "float",
+            TypeCode.Decimal => "decimal",
+            _ => "double",
+        };
 
         return () =>
             new OpenApiSchema
             {
                 Type = isInteger ? JsonSchemaType.Integer : JsonSchemaType.Number,
-                Format = isInteger ? "int32" : "double",
+                Format = format,
                 Minimum = minimum,
                 Maximum = maximum,
             };

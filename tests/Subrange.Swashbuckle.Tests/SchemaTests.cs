@@ -40,6 +40,33 @@ public class SchemaTests
         AssertDouble(properties["heat"], "-50", "200");
     }
 
+    [Theory]
+    [InlineData("price", "number", "decimal", "0.01", "1000")]
+    [InlineData("ratio", "number", "float", "0", "1")]
+    [InlineData("count", "integer", "int64", "0", "9007199254740992")]
+    [InlineData("channel", "integer", "int32", "1", "65535")]
+    public async Task EveryNumberType_IsDocumentedWithItsFormatAndBounds(
+        string property,
+        string type,
+        string format,
+        string minimum,
+        string maximum
+    )
+    {
+        var document = await OpenApiDocuments.Generate(TestContext.Current.CancellationToken);
+
+        var schema = document.Components?.Schemas?[nameof(MinimalBody)].Properties?[property];
+
+        Assert.NotNull(schema);
+        Assert.Equal(
+            type == "integer" ? JsonSchemaType.Integer : JsonSchemaType.Number,
+            schema.Type
+        );
+        Assert.Equal(format, schema.Format);
+        Assert.Equal(minimum, schema.Minimum);
+        Assert.Equal(maximum, schema.Maximum);
+    }
+
     [Fact]
     public async Task SubrangeTypes_AreNotDocumentedAsSharedComponents()
     {

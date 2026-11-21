@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace Subranges.Generators;
 
@@ -14,7 +15,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
     private sealed record Model(
         string? Namespace,
         string Name,
-        string Keyword,
+        string ValueType,
         string Min,
         string Max
     );
@@ -32,13 +33,13 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                 return
                     !SubrangeRules.Violations(type, attribute).Any()
                     && SubrangeRules.Bounds(attribute)
-                        is { MinLiteral: { } min, MaxLiteral: { } max } bounds
+                        is { MinText: { } min, MaxText: { } max } bounds
                     ? new Model(
                         type.ContainingNamespace.IsGlobalNamespace
                             ? null
                             : type.ContainingNamespace.ToDisplayString(),
                         type.Name,
-                        bounds.Keyword,
+                        bounds.ValueType,
                         min,
                         max
                     )
@@ -54,8 +55,9 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                     return;
 
                 var name = model.Name;
-                var value = model.Keyword;
-                var finiteCheck = value == "double" ? "double.IsFinite(value) && " : "";
+                var value = model.ValueType;
+                var min = SymbolDisplay.FormatLiteral(model.Min, quote: true);
+                var max = SymbolDisplay.FormatLiteral(model.Max, quote: true);
                 var namespaceLine = model.Namespace is null ? "" : $"namespace {model.Namespace};";
 
                 sourceContext.AddSource(
@@ -69,9 +71,10 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                     [global::System.Text.Json.Serialization.JsonConverter(typeof({{name}}.SubrangeJsonConverter))]
                     partial record {{name}} : global::System.IParsable<{{name}}>
                     {
-                        public static {{value}} Min => {{model.Min}};
+                        // Parsed rather than written as literals, so the same text works for every number type.
+                        public static {{value}} Min { get; } = ParseBound<{{value}}>({{min}});
 
-                        public static {{value}} Max => {{model.Max}};
+                        public static {{value}} Max { get; } = ParseBound<{{value}}>({{max}});
 
                         public static string OutOfRangeMessage =>
                             global::System.FormattableString.Invariant($"{{name}} must be between {Min} and {Max}.");
@@ -83,8 +86,9 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                             Value = value;
                         }
 
+                        // The bounds are finite, so NaN and infinities fail these comparisons.
                         public static bool IsInRange({{value}} value) =>
-                            {{finiteCheck}}value >= Min && value <= Max;
+                            value >= Min && value <= Max;
 
                         public static bool TryParse(
                             {{value}} value,
@@ -108,14 +112,14 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                         )
                         {
                             result = null;
-                            return {{value}}.TryParse(s, provider ?? global::System.Globalization.CultureInfo.InvariantCulture, out var value)
+                            return TryParseText<{{value}}>(s, provider, out var value)
                                 && TryParse(value, out result);
                         }
 
                         /// <exception cref="global::System.FormatException"><paramref name="s"/> is not a number, or is outside <see cref="Min"/> and <see cref="Max"/>.</exception>
                         public static {{name}} Parse(string s, global::System.IFormatProvider? provider)
                         {
-                            if (!{{value}}.TryParse(s, provider ?? global::System.Globalization.CultureInfo.InvariantCulture, out var value))
+                            if (!TryParseText<{{value}}>(s, provider, out var value))
                                 throw new global::System.FormatException($"'{s}' is not a number.");
 
                             return TryParse(value, out var result)
@@ -125,6 +129,35 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
 
                         public override string ToString() =>
                             Value.ToString(null, global::System.Globalization.CultureInfo.InvariantCulture);
+
+                        // Generic so that number types implementing these members explicitly work too.
+                        private static TNumber ParseBound<TNumber>(string text)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber> =>
+                            TNumber.Parse(text, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture);
+
+                        private static bool TryParseText<TNumber>(string? s, global::System.IFormatProvider? provider, [global::System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TNumber value)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber> =>
+                            TNumber.TryParse(s, provider ?? global::System.Globalization.CultureInfo.InvariantCulture, out value);
+
+                        private static bool TryParseNumber<TNumber>(global::System.ReadOnlySpan<byte> utf8, [global::System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TNumber value)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber> =>
+                            TNumber.TryParse(utf8, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture, out value);
+
+                        private static bool TryParseNumber<TNumber>(string? text, [global::System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TNumber value)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber> =>
+                            TNumber.TryParse(text, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture, out value);
+
+                        // Utf8JsonWriter has no overload for every number type, so the number is formatted
+                        // and written as raw JSON. 64 bytes hold any built-in number in its shortest form.
+                        private static void WriteNumber<TNumber>(global::System.Text.Json.Utf8JsonWriter writer, TNumber value)
+                            where TNumber : global::System.IUtf8SpanFormattable, global::System.IFormattable
+                        {
+                            global::System.Span<byte> utf8 = stackalloc byte[64];
+                            if (value.TryFormat(utf8, out var written, default, global::System.Globalization.CultureInfo.InvariantCulture))
+                                writer.WriteRawValue(utf8[..written], skipInputValidation: true);
+                            else
+                                writer.WriteRawValue(value.ToString(null, global::System.Globalization.CultureInfo.InvariantCulture));
+                        }
 
                         // Only a JSON number is accepted, not a numeric string. JsonException rather than
                         // ArgumentException: ASP.NET Core turns it into a 400, anything else into a 500.
@@ -142,12 +175,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                     : reader.ValueSpan;
 
                                 return reader.TokenType == global::System.Text.Json.JsonTokenType.Number
-                                    && {{value}}.TryParse(
-                                        text,
-                                        global::System.Globalization.NumberStyles.Float,
-                                        global::System.Globalization.CultureInfo.InvariantCulture,
-                                        out var value
-                                    )
+                                    && TryParseNumber<{{value}}>(text, out var value)
                                     && TryParse(value, out var result)
                                     ? result
                                     : throw new global::System.Text.Json.JsonException(OutOfRangeMessage);
@@ -157,7 +185,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 global::System.Text.Json.Utf8JsonWriter writer,
                                 {{name}} value,
                                 global::System.Text.Json.JsonSerializerOptions options
-                            ) => writer.WriteNumberValue(value.Value);
+                            ) => WriteNumber(writer, value.Value);
 
                             // A dictionary key is always a JSON string, so it's read as the text of a number.
                             public override {{name}} ReadAsPropertyName(
@@ -165,12 +193,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 global::System.Type typeToConvert,
                                 global::System.Text.Json.JsonSerializerOptions options
                             ) =>
-                                {{value}}.TryParse(
-                                    reader.GetString(),
-                                    global::System.Globalization.NumberStyles.Float,
-                                    global::System.Globalization.CultureInfo.InvariantCulture,
-                                    out var value
-                                )
+                                TryParseNumber<{{value}}>(reader.GetString(), out var value)
                                 && TryParse(value, out var result)
                                     ? result
                                     : throw new global::System.Text.Json.JsonException(OutOfRangeMessage);

@@ -41,6 +41,8 @@ These are settled; don't reopen them without a new reason.
 
 - **A `sealed record`, not a struct.** A struct always has a `default` value that skips any constructor, so a struct type could hold a value nobody checked. The cost is one small allocation per value, which the GC makes cheap for short-lived values.
 - **When a subrange fits.** A value whose valid range is fixed and doesn't depend on any other value: page sizes, coordinates, percentages, protocol limits like a Modbus device address (1 to 247). Not a value whose range depends on another one: a day of the month is 1 to 31 only in some months, so it belongs in a type that models the whole date.
+- **Any number type the build can check.** Supported value types are found through generic math, not listed: a type implementing `INumber<T>` whose `MinValue` and `MaxValue` are constants, which the build reads to check the bounds. Types whose limits are properties (`Int128`, `Half`, `nint`) can't be checked at build time, so they're rejected rather than checked at runtime. The generated code calls the number's members through private generic helpers, so types that implement them explicitly work too.
+- **Bounds are doubles.** An attribute can't take a `TValue` argument. A double holds every whole number up to 2^53 exactly, so integer bounds beyond that are rejected rather than silently rounded. Fractional bounds become the shortest text that round-trips the double, which is what was written for anything up to 15 significant digits, so `[Subrange<decimal>(0.01, 1000)]` has a `Min` of exactly `0.01m`.
 - **Naming.** The term comes from Pascal and Ada (`type Percent = 0..100`). The package is `Subrange` and the namespace `Subranges`, like `StronglyTypedId` and `StronglyTypedIds`: a namespace and a type in it shouldn't share a name (CA1724).
 - **The README is for users.** It shows how the package works and how to install it, assuming it is on NuGet. Reasoning, diagnostics and contributor details belong here.
 
@@ -81,8 +83,8 @@ Every new `SR` code needs a test in `GeneratorDiagnosticsTests` that triggers it
 |---|---|
 | `SR0001` | The type must be a top-level, non-generic `sealed partial record` |
 | `SR0002` | The type must not declare a constructor or primary constructor |
-| `SR0003` | Only `byte`, `int` and `double` are supported |
-| `SR0004` | Bounds must be finite, `min <= max`, and representable as the value type |
+| `SR0003` | The value type must be a number type with constant `MinValue` and `MaxValue`: every built-in one except `char`, and not `Int128`, `Half` or `nint` |
+| `SR0004` | Bounds must be finite, `min <= max`, within the value type, and for integer types whole numbers no larger than 2^53 in magnitude |
 
 # Packaging
 

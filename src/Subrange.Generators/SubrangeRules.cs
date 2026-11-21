@@ -38,7 +38,7 @@ internal static class SubrangeRules
     public static readonly DiagnosticDescriptor UnsupportedValueType = new(
         "SR0003",
         "Subrange value type is not supported",
-        "'{0}' is a subrange of '{1}', only byte, int and double are supported",
+        "'{0}' is a subrange of '{1}', but only number types with constant MinValue and MaxValue are supported, such as int, long, double and decimal",
         _category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -47,7 +47,7 @@ internal static class SubrangeRules
     public static readonly DiagnosticDescriptor InvalidBounds = new(
         "SR0004",
         "Subrange bounds are invalid",
-        "'{0}' must have finite bounds where min <= max, both representable as '{1}'",
+        "'{0}' must have finite bounds where min <= max, both within '{1}', and whole numbers no larger than 2^53 in magnitude if '{1}' is an integer type, since the bounds are written as doubles",
         _category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -82,60 +82,67 @@ internal static class SubrangeRules
             yield break;
         }
 
-        if (bounds.MinLiteral is null || bounds.MaxLiteral is null)
-            yield return Diagnostic.Create(InvalidBounds, location, type.Name, bounds.Keyword);
+        if (bounds.MinText is null || bounds.MaxText is null)
+            yield return Diagnostic.Create(InvalidBounds, location, type.Name, bounds.ValueType);
     }
 
     /// <summary>
-    /// The C# keyword of the value type and the bounds as literals of it, or null literals when a
-    /// bound isn't representable. Null when the value type isn't supported.
+    /// The value type as C# code and the bounds as invariant text it parses, or null texts when a
+    /// bound isn't valid for it. Null when the value type isn't supported.
     /// </summary>
-    public static (string Keyword, string? MinLiteral, string? MaxLiteral)? Bounds(
+    /// <remarks>
+    /// Supported types are those whose <c>MinValue</c> and <c>MaxValue</c> are constants, which the
+    /// build can check bounds against: every built-in number type except <c>char</c>, and not
+    /// <c>Int128</c>, <c>Half</c> or <c>nint</c>, whose limits are properties.
+    /// </remarks>
+    public static (string ValueType, string? MinText, string? MaxText)? Bounds(
         AttributeData attribute
     )
     {
-        var keyword = attribute.AttributeClass?.TypeArguments.FirstOrDefault()?.SpecialType switch
-        {
-            SpecialType.System_Byte => "byte",
-            SpecialType.System_Int32 => "int",
-            SpecialType.System_Double => "double",
-            _ => null,
-        };
-        if (keyword is null)
+        var valueType = attribute.AttributeClass?.TypeArguments.FirstOrDefault();
+        if (
+            valueType is null
+            || valueType.SpecialType == SpecialType.System_Char
+            || Limit(valueType, "MinValue") is not { } lowest
+            || Limit(valueType, "MaxValue") is not { } highest
+        )
             return null;
 
+        var name = valueType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         if (
             attribute.ConstructorArguments.Length != 2
             || attribute.ConstructorArguments[0].Value is not double min
             || attribute.ConstructorArguments[1].Value is not double max
             || min > max
         )
-            return (keyword, null, null);
+            return (name, null, null);
 
-        return (keyword, Literal(keyword, min), Literal(keyword, max));
-    }
-
-    private static string? Literal(string keyword, double value)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value))
-            return null;
-
-        var (lowest, highest) = keyword switch
-        {
-            "byte" => (byte.MinValue, byte.MaxValue),
-            "int" => ((double)int.MinValue, (double)int.MaxValue),
-            _ => (double.MinValue, double.MaxValue),
-        };
-        if (value < lowest || value > highest)
-            return null;
-
-        if (keyword == "double")
-            return value.ToString("R", CultureInfo.InvariantCulture);
-
-        return Math.Floor(value) == value
-            ? ((long)value).ToString(CultureInfo.InvariantCulture)
+        var isInteger = valueType.AllInterfaces.Any(i =>
+            i.OriginalDefinition.ToDisplayString() == "System.Numerics.IBinaryInteger<TSelf>"
+        );
+        string? Text(double value) =>
+            double.IsNaN(value) || double.IsInfinity(value) || value < lowest || value > highest
+                ? null
+            : !isInteger ? value.ToString("R", CultureInfo.InvariantCulture)
+            // A double holds every whole number up to 2^53 exactly; past that, the bound the
+            // build sees may not be the one that was written.
+            : Math.Floor(value) == value && Math.Abs(value) <= _largestExactInteger
+                ? ((long)value).ToString(CultureInfo.InvariantCulture)
             : null;
+
+        return (name, Text(min), Text(max));
     }
+
+    private const double _largestExactInteger = 9007199254740992;
+
+    private static double? Limit(ITypeSymbol type, string name) =>
+        type.GetMembers(name)
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(field => field.IsStatic && field.HasConstantValue)
+            ?.ConstantValue
+            is { } value
+            ? Convert.ToDouble(value, CultureInfo.InvariantCulture)
+            : null;
 
     private static IEnumerable<Diagnostic> ShapeViolations(
         INamedTypeSymbol type,

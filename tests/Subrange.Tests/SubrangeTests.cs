@@ -135,9 +135,68 @@ public class SubrangeTests
     }
 
     [Fact]
+    public void Decimal_BoundsAreExact_AsWritten()
+    {
+        Assert.Equal(0.01m, Price.Min);
+        Assert.True(Price.TryParse(0.01m, out _));
+        Assert.False(Price.TryParse(0.009m, out _));
+        Assert.False(Price.TryParse(1000.01m, out _));
+    }
+
+    [Theory]
+    [InlineData(typeof(Price), "19.99")]
+    [InlineData(typeof(Ratio), "0.1")]
+    [InlineData(typeof(Count), "9007199254740992")]
+    [InlineData(typeof(Channel), "65535")]
+    [InlineData(typeof(Offset), "-10")]
+    public void Json_RoundTripsEveryNumberType_AsABareNumber(Type type, string json)
+    {
+        var value = JsonSerializer.Deserialize(json, type);
+
+        Assert.NotNull(value);
+        Assert.Equal(json, JsonSerializer.Serialize(value, type));
+    }
+
+    [Theory]
+    [InlineData(typeof(Price), "1000.01")]
+    [InlineData(typeof(Ratio), "1.5")]
+    [InlineData(typeof(Count), "9007199254740993")]
+    [InlineData(typeof(Channel), "0")]
+    [InlineData(typeof(Offset), "11")]
+    [InlineData(typeof(Channel), "1.5")]
+    public void Json_RejectsEveryNumberType_OutsideItsBounds(Type type, string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize(json, type));
+    }
+
+    [Fact]
+    public void Float_RejectsNaN()
+    {
+        Assert.False(Ratio.TryParse(float.NaN, out _));
+    }
+
+    [Fact]
+    public void Text_IsParsedByTheValueType()
+    {
+        Assert.Equal(19.99m, Price.Parse("19.99", CultureInfo.InvariantCulture).Value);
+        Assert.Equal((ushort)443, Channel.Parse("443", CultureInfo.InvariantCulture).Value);
+        Assert.False(Channel.TryParse("70000", CultureInfo.InvariantCulture, out _));
+    }
+
+    [Fact]
     public void SubrangeTypes_CanOnlyBeConstructedByParsing()
     {
-        var reachable = new[] { typeof(Port), typeof(Temperature), typeof(Address) }
+        var reachable = new[]
+        {
+            typeof(Port),
+            typeof(Temperature),
+            typeof(Address),
+            typeof(Price),
+            typeof(Ratio),
+            typeof(Count),
+            typeof(Channel),
+            typeof(Offset),
+        }
             .SelectMany(t =>
                 t.GetConstructors(
                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
@@ -158,3 +217,18 @@ public sealed partial record Temperature;
 
 [Subrange<byte>(1, byte.MaxValue)]
 public sealed partial record Address;
+
+[Subrange<decimal>(0.01, 1000)]
+public sealed partial record Price;
+
+[Subrange<float>(0, 1)]
+public sealed partial record Ratio;
+
+[Subrange<long>(0, 9_007_199_254_740_992)]
+public sealed partial record Count;
+
+[Subrange<ushort>(1, 65535)]
+public sealed partial record Channel;
+
+[Subrange<sbyte>(-10, 10)]
+public sealed partial record Offset;

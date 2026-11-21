@@ -17,7 +17,7 @@ var valid = PageSize.TryParse(500, out _);   // false
 PageSize.Parse(500);                         // throws ArgumentOutOfRangeException
 ```
 
-Bounds are inclusive, and the value type is `byte`, `int` or `double`. The generated constructor is private, so parsing is the only way to get a value. Each type gets `Value`, `Min`, `Max`, `Parse` and `TryParse` for numbers and text, and a JSON converter that reads and writes a plain number.
+Bounds are inclusive, and the value type can be a built-in number type such as `int`, `ushort`, `long`, `float`, `double` or `decimal`. The generated constructor is private, so parsing is the only way to get a value. Each type gets `Value`, `Min`, `Max`, `Parse` and `TryParse` for numbers and text, and a JSON converter that reads and writes a plain number.
 
 ## ASP.NET Core
 

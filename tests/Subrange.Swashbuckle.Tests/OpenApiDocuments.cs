@@ -20,12 +20,28 @@ public sealed partial record Temperature;
 [Subrange<int>(1, 10)]
 public sealed partial record Overridden;
 
+[Subrange<decimal>(0.01, 1000)]
+public sealed partial record Price;
+
+[Subrange<float>(0, 1)]
+public sealed partial record Ratio;
+
+[Subrange<long>(0, 9_007_199_254_740_992)]
+public sealed partial record Count;
+
+[Subrange<ushort>(1, 65535)]
+public sealed partial record Channel;
+
 public sealed record MinimalBody(
     Port Port,
     Port? Fallback,
     DeviceAddress Address,
     Temperature Heat,
-    Overridden Overridden
+    Overridden Overridden,
+    Price Price,
+    Ratio Ratio,
+    Count Count,
+    Channel Channel
 );
 
 public sealed record ControllerBody(
