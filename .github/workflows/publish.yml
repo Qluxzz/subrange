@@ -1,0 +1,53 @@
+name: Publish
+
+# Publishes both packages to nuget.org when a GitHub release is published. The release's tag is
+# the version, such as v1.2.0 or v1.2.0-beta.1.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Read the version from the tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The release's tag '$TAG' is not a version like v1.2.0 or v1.2.0-beta.1"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  ci:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      # Trusted publishing: NuGet/login trades GitHub's OIDC token for a short-lived API key, so
+      # no long-lived key is stored in the repository.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: package
+          path: artifacts
+      - uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      # --skip-duplicate lets a failed run be re-run after one of the packages was already pushed.
+      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

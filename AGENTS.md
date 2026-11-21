@@ -1,4 +1,4 @@
-**Purpose:** How to build and test this repo, what the package exists to guarantee, and the design rules that keep new features in line with that guarantee. `README.md` is the user-facing spec; read it before changing behaviour.
+**Purpose:** How to build and test this repo, what the package exists to guarantee, and the design rules that keep new features in line with that guarantee. The package READMEs (`README.md` for `Subrange`, `src/Subrange.Swashbuckle/README.md`) are the user-facing spec; read them before changing behaviour.
 
 # Commands
 
@@ -12,7 +12,7 @@ dotnet test                                  # builds and runs every test projec
 dotnet test --project tests/Subrange.Tests   # one project; a bare directory argument no longer works
 ```
 
-CI (`.github/workflows/ci.yml`) runs exactly these, then `dotnet pack` for each package. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Packages are versioned centrally in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`.
+CI (`.github/workflows/ci.yml`) runs exactly these, then `dotnet pack` for each package. Publishing a GitHub release runs `publish.yml`, which calls `ci.yml` with the release's tag as the version and pushes the packages it built, so a check or package added to `ci.yml` applies to releases too. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Packages are versioned centrally in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`.
 
 While iterating, run the narrowest test project. Before finishing, run the full `dotnet test` and `csharpier check .`. **Report what you didn't run** instead of implying the work is verified.
 
@@ -44,7 +44,7 @@ These are settled; don't reopen them without a new reason.
 - **Any number type the build can check.** Supported value types are found through generic math, not listed: a type implementing `INumber<T>` whose `MinValue` and `MaxValue` are constants, which the build reads to check the bounds. Types whose limits are properties (`Int128`, `Half`, `nint`) can't be checked at build time, so they're rejected rather than checked at runtime. The generated code calls the number's members through private generic helpers, so types that implement them explicitly work too.
 - **Bounds are doubles.** An attribute can't take a `TValue` argument. A double holds every whole number up to 2^53 exactly, so integer bounds beyond that are rejected rather than silently rounded. Fractional bounds become the shortest text that round-trips the double, which is what was written for anything up to 15 significant digits, so `[Subrange<decimal>(0.01, 1000)]` has a `Min` of exactly `0.01m`.
 - **Naming.** The term comes from Pascal and Ada (`type Percent = 0..100`). The package is `Subrange` and the namespace `Subranges`, like `StronglyTypedId` and `StronglyTypedIds`: a namespace and a type in it shouldn't share a name (CA1724).
-- **The README is for users.** It shows how the package works and how to install it, assuming it is on NuGet. Reasoning, diagnostics and contributor details belong here.
+- **The READMEs are for users.** Each package has its own, packed into it, showing how it works and how to install it, assuming it is on NuGet. Reasoning, diagnostics and contributor details belong here.
 
 # Design rules
 
@@ -97,9 +97,9 @@ The generator is built against Roslyn 5.0, so consumers need the .NET 10 SDK or 
 
 # How to work in this repo
 
-- **Read before you write.** Look at the existing implementation, its tests and the README section before changing behaviour.
+- **Read before you write.** Look at the existing implementation, its tests and the package's README before changing behaviour.
 - **Make the smallest coherent change.** If you spot something worth fixing elsewhere, mention it rather than folding it in.
-- **Update `README.md` in the same change** as any behaviour change. It is the spec users read, and its examples must compile.
+- **Update each affected package's README in the same change** as any behaviour change. They are the spec users read, and their examples must compile as written, with only the `using` lines they show. Public extension methods live in the namespace of the type they extend (`Microsoft.Extensions.DependencyInjection` for `IServiceCollection`), so examples need no extra `using`.
 - **A function's name has to earn the jump.** Inline single-use helpers unless the name tells the reader something the code doesn't, or isolates an invariant.
 
 # Tests
