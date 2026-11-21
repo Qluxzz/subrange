@@ -5,6 +5,7 @@
     <RootNamespace>Subranges</RootNamespace>
     <Authors>Qluxzz</Authors>
     <Description>Subrange types for .NET: a number type that only holds values within its bounds, generated from a [Subrange] declaration, whose only constructor is private so every value has been checked.</Description>
+    <RepositoryUrl>https://github.com/Qluxzz/subrange</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

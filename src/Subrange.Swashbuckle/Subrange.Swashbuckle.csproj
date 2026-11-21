@@ -5,6 +5,7 @@
     <RootNamespace>Subranges.Swashbuckle</RootNamespace>
     <Authors>Qluxzz</Authors>
     <Description>Documents Subrange types in Swashbuckle OpenAPI schemas as the integers and numbers they are on the wire, with their minimum and maximum.</Description>
+    <RepositoryUrl>https://github.com/Qluxzz/subrange</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
