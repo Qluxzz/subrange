@@ -5,33 +5,49 @@ Subrange types for .NET 10 and later: a number type that only holds values withi
 ```csharp
 using Subranges;
 
-[Subrange<int>(1, 65535)]
-public sealed partial record TcpPort;
+[Subrange<int>(1, 100)]
+public sealed partial record PageSize;
 
-// Modbus reserves 0 for broadcast and 248-255.
-[Subrange<byte>(1, 247)]
-public sealed partial record ModbusDeviceAddress;
+[Subrange<double>(-90, 90)]
+public sealed partial record Latitude;
 
-[Subrange<double>(-50, 200)]
-public sealed partial record HeatThreshold;
+[Subrange<double>(-180, 180)]
+public sealed partial record Longitude;
 
-var port = TcpPort.Parse(443);
-TcpPort.TryParse(70000, out _); // false
+[Subrange<double>(0, 100)]
+public sealed partial record Percentage;
+
+var pageSize = PageSize.Parse(50);
+PageSize.TryParse(100_000, out _); // false
 ```
 
-The name comes from Pascal and Ada, where a *subrange type* like `type Port = 1..65535` is a type whose values are a range of another type's.
+`Latitude` and `Longitude` are both doubles, but a method taking `(Latitude, Longitude)` can't be called with them swapped.
+
+The name comes from Pascal and Ada, where a *subrange type* like `type Percent = 0..100` is a type whose values are a range of another type's.
 
 ## Why
 
 A field typed `int` accepts every int, including `0`, negative numbers and `int.MaxValue`. When the domain only allows some of them, every caller has to re-check the bounds, and eventually one forgets. A subrange type checks them once, when the value is created, and carries that guarantee everywhere the value goes.
 
-**A value outside the bounds is rejected, never clamped.** A port of 70000 is an error to report, not something to quietly turn into 65535. That makes these types for the edges of an application, where input arrives and has to be checked, rather than for game-style meters that saturate.
+**A value outside the bounds is rejected, never clamped.** A percentage of 120 is an error to report, not something to quietly turn into 100. That makes these types for the edges of an application, where input arrives and has to be checked, rather than for game-style meters that saturate.
 
-The type is a `sealed record` with a private constructor, not a struct: a struct always has a `default` value that skips any constructor, so the only way to get a `TcpPort` is to parse one. The cost is one small allocation per value.
+The type is a `sealed record` with a private constructor, not a struct: a struct always has a `default` value that skips any constructor, so the only way to get a `Percentage` is to parse one. The cost is one small allocation per value.
+
+## When a subrange fits
+
+A subrange fits a value whose valid range is fixed and doesn't depend on any other value. Protocol and hardware limits are typical:
+
+```csharp
+// Modbus reserves 0 for broadcast and 248-255.
+[Subrange<byte>(1, 247)]
+public sealed partial record ModbusDeviceAddress;
+```
+
+It doesn't fit a value whose range depends on another one. A day of the month is 1 to 31 only in some months, and 29 February only in some years, so `[Subrange<int>(1, 31)]` would accept 31 February. Model the values together instead, for example as a `DateOnly`.
 
 ## What you get
 
-Both bounds are inclusive: `[Subrange<int>(1, 65535)]` accepts 1 and 65535. The value type is `byte`, `int` or `double`. A bound the type can't hold, like `0.5` for an `int` or `256` for a `byte`, is a compile error.
+Both bounds are inclusive: `[Subrange<int>(1, 100)]` accepts 1 and 100. The value type is `byte`, `int` or `double`. A bound the type can't hold, like `0.5` for an `int` or `256` for a `byte`, is a compile error.
 
 The generator adds:
 
@@ -46,19 +62,20 @@ The generator adds:
 Nothing needs registering. Minimal APIs and MVC controllers bind subrange types through `IParsable<T>` and the JSON converter, and reject a value outside the bounds with 400 before the handler runs:
 
 ```csharp
-app.MapGet("/ports/{port}", (TcpPort port) => port.Value);    // route: /ports/443
-app.MapGet("/scan", (TcpPort[] ports) => ports.Length);       // query: ?ports=80&ports=443
-// body: {"443": "https"}
-app.MapPost("/services", (Dictionary<TcpPort, string> services) => services.Count);
+app.MapGet("/items", (PageSize pageSize) => pageSize.Value);                // query: ?pageSize=50
+app.MapGet("/devices/{address}", (ModbusDeviceAddress address) => address.Value); // route: /devices/17
+app.MapGet("/readings", (ModbusDeviceAddress[] addresses) => addresses.Length); // ?addresses=1&addresses=17
+// body: {"17": "pump"}
+app.MapPost("/devices", (Dictionary<ModbusDeviceAddress, string> names) => names.Count);
 ```
 
 The same holds for `[FromRoute]`, `[FromQuery]` and `[FromBody]` in controllers. Repeated query values bind to an array, which is the collection type minimal APIs support there; a JSON body can hold them anywhere, including in lists and as dictionary keys or values.
 
-You may add your own members, such as a named constant (`public static TcpPort Https { get; } = Parse(443);`), but not a constructor.
+You may add your own members, such as a named default (`public static PageSize Default { get; } = Parse(25);`), but not a constructor.
 
 ## Null
 
-A property typed `TcpPort?` accepts a missing value; one typed `TcpPort` should not. System.Text.Json doesn't call converters for JSON `null`, so turn on `RespectNullableAnnotations` in your `JsonSerializerOptions`. Otherwise a `null` lands in a non-nullable property.
+A property typed `PageSize?` accepts a missing value; one typed `PageSize` should not. System.Text.Json doesn't call converters for JSON `null`, so turn on `RespectNullableAnnotations` in your `JsonSerializerOptions`. Otherwise a `null` lands in a non-nullable property.
 
 ## OpenAPI with Swashbuckle
 

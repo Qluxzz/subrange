@@ -109,12 +109,10 @@ public class GeneratorDiagnosticsTests
             [Subrange<byte>(1, byte.MaxValue)]
             public sealed partial record FineByte;
 
-            [Subrange<int>(1, 65535)]
-            public sealed partial record WithOwnMembers
+            [Subrange<int>(1, 100)]
+            public sealed partial record PageSize
             {
-                public static WithOwnMembers Https { get; } = Parse(443);
-
-                public bool IsWellKnown => Value < 1024;
+                public static PageSize Default { get; } = Parse(25);
             }
 
             [Subrange<int>(int.MinValue, int.MaxValue)]
