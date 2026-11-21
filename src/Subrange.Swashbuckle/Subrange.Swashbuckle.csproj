@@ -8,6 +8,7 @@
     <RepositoryUrl>https://github.com/Qluxzz/subrange</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
@@ -20,5 +21,6 @@
     <!-- Passes the generator on too: a host referencing only this package can still declare subranges -->
     <ProjectReference Include="..\Subrange\Subrange.csproj" PrivateAssets="none" />
     <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 </Project>
