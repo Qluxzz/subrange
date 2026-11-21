@@ -12,7 +12,7 @@ dotnet test                                  # builds and runs every test projec
 dotnet test --project tests/Subrange.Tests   # one project; a bare directory argument no longer works
 ```
 
-CI (`.github/workflows/ci.yml`) runs exactly these, then `dotnet pack` for each package. Publishing a GitHub release runs `publish.yml`, which calls `ci.yml` with the release's tag as the version and pushes the packages it built, so a check or package added to `ci.yml` applies to releases too. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Packages are versioned centrally in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`.
+CI (`.github/workflows/ci.yml`) runs exactly these checks. Publishing a GitHub release runs `publish.yml`, which calls `ci.yml`, so a check added there gates releases too, then packs each package with the release's tag as the version and pushes it to nuget.org. Packages are only built there, so `publish.yml` is the one list of what ships: a new package needs a `dotnet pack` line there, and a change to packaging should be tried locally with `dotnet pack` before it's released. Restore runs in locked mode on CI only, so after a package change run `dotnet restore --force-evaluate` and commit the lock files. Packages are versioned centrally in `Directory.Packages.props`; never put a `Version=` on a `PackageReference`.
 
 While iterating, run the narrowest test project. Before finishing, run the full `dotnet test` and `csharpier check .`. **Report what you didn't run** instead of implying the work is verified.
 
