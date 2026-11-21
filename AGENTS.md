@@ -35,6 +35,15 @@ The guarantees every generated type keeps:
 - **Parse once, at the edge.** The generated `IParsable<T>` and `JsonConverter` are the framework's own boundary hooks, so ASP.NET Core rejects invalid route, query and body values with a 400 before a handler runs. Invalid JSON input throws `JsonException`, never another exception type, because anything else becomes a 500.
 - **Keep the published schema honest.** A subrange type is documented as the `integer` or `number` it is on the wire, with the same `minimum` and `maximum` the parser enforces.
 
+# Design decisions
+
+These are settled; don't reopen them without a new reason.
+
+- **A `sealed record`, not a struct.** A struct always has a `default` value that skips any constructor, so a struct type could hold a value nobody checked. The cost is one small allocation per value, which the GC makes cheap for short-lived values.
+- **When a subrange fits.** A value whose valid range is fixed and doesn't depend on any other value: page sizes, coordinates, percentages, protocol limits like a Modbus device address (1 to 247). Not a value whose range depends on another one: a day of the month is 1 to 31 only in some months, so it belongs in a type that models the whole date.
+- **Naming.** The term comes from Pascal and Ada (`type Percent = 0..100`). The package is `Subrange` and the namespace `Subranges`, like `StronglyTypedId` and `StronglyTypedIds`: a namespace and a type in it shouldn't share a name (CA1724).
+- **The README is for users.** It shows how the package works and how to install it, assuming it is on NuGet. Reasoning, diagnostics and contributor details belong here.
+
 # Design rules
 
 ## Each fact has one owner
@@ -66,7 +75,23 @@ There are no consumers to migrate. Change APIs and behaviour directly; don't add
 - **The generator model is a record of strings** so incremental caching compares it by value. Never put a symbol, syntax node or location in a model.
 - **Generated code** uses `global::`-qualified names, documents every exception it can throw with `<exception cref>`, and its comments explain why.
 
-Every new `SR` code needs a test in `GeneratorDiagnosticsTests` that triggers it, a row in the README's "Compile errors" table, and, if it constrains valid types, a case in `WellShapedTypes_CompileWithoutErrors` showing the valid shape still compiles.
+Every new `SR` code needs a test in `GeneratorDiagnosticsTests` that triggers it, a row in the table below, and, if it constrains valid types, a case in `WellShapedTypes_CompileWithoutErrors` showing the valid shape still compiles.
+
+| Code | Meaning |
+|---|---|
+| `SR0001` | The type must be a top-level, non-generic `sealed partial record` |
+| `SR0002` | The type must not declare a constructor or primary constructor |
+| `SR0003` | Only `byte`, `int` and `double` are supported |
+| `SR0004` | Bounds must be finite, `min <= max`, and representable as the value type |
+
+# Packaging
+
+| Package | Contains |
+|---|---|
+| `Subrange` | The attribute (`lib/net10.0/Subrange.dll`) and the generator (`analyzers/dotnet/cs/Subrange.Generators.dll`), so one `PackageReference` brings both and NuGet passes the generator on to every project that references it |
+| `Subrange.Swashbuckle` | `AddSubrangesToSwaggerGen`. It depends on `Subrange`, including its generator |
+
+The generator is built against Roslyn 5.0, so consumers need the .NET 10 SDK or a Visual Studio version with that compiler. A project referencing `src/Subrange` directly, like the test projects, must also reference `src/Subrange.Generators` with `OutputItemType="Analyzer"`, because a `ProjectReference` doesn't pass analyzers on. To try a package locally, `dotnet pack src/Subrange -c Release -o ./artifacts` and add `./artifacts` as a package source.
 
 # How to work in this repo
 
