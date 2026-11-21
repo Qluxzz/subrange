@@ -1,5 +1,7 @@
 # Subrange
 
+[![NuGet](https://img.shields.io/nuget/v/Subrange.svg)](https://www.nuget.org/packages/Subrange)
+
 A number type that only holds values within its bounds. A value outside them is rejected, never clamped. Check a number once where it enters your application, and no code after that has to remember its bounds.
 
 ```bash

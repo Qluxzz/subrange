@@ -1,5 +1,7 @@
 # Subrange.Swashbuckle
 
+[![NuGet](https://img.shields.io/nuget/v/Subrange.Swashbuckle.svg)](https://www.nuget.org/packages/Subrange.Swashbuckle)
+
 Documents [Subrange](https://www.nuget.org/packages/Subrange) types in Swashbuckle's OpenAPI schemas as the numbers they are on the wire, with their bounds.
 
 ```bash
