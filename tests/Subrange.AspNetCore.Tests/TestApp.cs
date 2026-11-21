@@ -12,7 +12,14 @@ public sealed partial record Port;
 [Subrange<double>(-50, 200)]
 public sealed partial record Temperature;
 
-public sealed record Settings(Port Port, Port? Fallback, Temperature Temperature);
+public sealed record Settings(
+    Port Port,
+    Port? Fallback,
+    Temperature Temperature,
+    List<Port> Allowed,
+    Dictionary<string, Port> Named,
+    Dictionary<Port, string> Services
+);
 
 /// <summary>The same endpoints as <see cref="TestApp.MapMinimalApis"/>, as an MVC controller.</summary>
 [ApiController]
@@ -24,6 +31,9 @@ public sealed class SubrangeController : ControllerBase
 
     [HttpGet("ports")]
     public int GetQueryPort([FromQuery] Port port) => port.Value;
+
+    [HttpGet("port-lists")]
+    public int[] GetPortList([FromQuery] Port[] ports) => [.. ports.Select(port => port.Value)];
 
     [HttpPost("settings")]
     public Settings PostSettings(Settings settings) => settings;
@@ -64,6 +74,10 @@ public static class TestApp
     {
         app.MapGet("/minimal/ports/{port}", (Port port) => port.Value);
         app.MapGet("/minimal/ports", (Port port) => port.Value);
+        app.MapGet(
+            "/minimal/port-lists",
+            (Port[] ports) => ports.Select(port => port.Value).ToArray()
+        );
         app.MapPost("/minimal/settings", (Settings settings) => settings);
     }
 }

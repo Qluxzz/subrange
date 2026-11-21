@@ -80,7 +80,7 @@ Every new `SR` code needs a test in `GeneratorDiagnosticsTests` that triggers it
 | Project | Tests |
 |---|---|
 | `tests/Subrange.Tests` | Generated behaviour through its public API, and every `SR` diagnostic |
-| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are a 400 before the handler, through a `TestServer` |
+| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are a 400 before the handler, through a `TestServer`: route, query, repeated query values, and JSON bodies with lists and dictionaries |
 | `tests/Subrange.Swashbuckle.Tests` | The published OpenAPI schema |
 
 - **Test at the highest level that still reaches the cases.** For binding, that is an HTTP request through `TestServer`; for the schema, the generated OpenAPI document. Drive generated types through `Parse`, `TryParse` and JSON, never their internals.

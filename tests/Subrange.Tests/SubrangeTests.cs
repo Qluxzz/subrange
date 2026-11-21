@@ -87,6 +87,42 @@ public class SubrangeTests
         Assert.Equal(Port.Parse(502), JsonSerializer.Deserialize<Port>("502"));
     }
 
+    [Fact]
+    public void Json_CanUseItAsADictionaryKey()
+    {
+        var services = new Dictionary<Port, string> { [Port.Parse(443)] = "https" };
+
+        var json = JsonSerializer.Serialize(services);
+
+        Assert.Equal("""{"443":"https"}""", json);
+        Assert.Equal(services, JsonSerializer.Deserialize<Dictionary<Port, string>>(json));
+    }
+
+    [Fact]
+    public void Json_DoubleKeys_RoundTrip_AndRejectNaN()
+    {
+        var readings = new Dictionary<Temperature, string> { [Temperature.Parse(-12.5)] = "cold" };
+
+        var json = JsonSerializer.Serialize(readings);
+
+        Assert.Equal("""{"-12.5":"cold"}""", json);
+        Assert.Equal(readings, JsonSerializer.Deserialize<Dictionary<Temperature, string>>(json));
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<Dictionary<Temperature, string>>("""{"NaN":"?"}""")
+        );
+    }
+
+    [Theory]
+    [InlineData("""{"0":"none"}""")]
+    [InlineData("""{"1.5":"half"}""")]
+    [InlineData("""{"abc":"text"}""")]
+    public void Json_RejectsADictionaryKeyOutsideTheBounds(string json)
+    {
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<Dictionary<Port, string>>(json)
+        );
+    }
+
     [Theory]
     [InlineData("0")]
     [InlineData("65536")]

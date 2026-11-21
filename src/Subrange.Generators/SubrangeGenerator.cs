@@ -158,6 +158,28 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 {{name}} value,
                                 global::System.Text.Json.JsonSerializerOptions options
                             ) => writer.WriteNumberValue(value.Value);
+
+                            // A dictionary key is always a JSON string, so it's read as the text of a number.
+                            public override {{name}} ReadAsPropertyName(
+                                ref global::System.Text.Json.Utf8JsonReader reader,
+                                global::System.Type typeToConvert,
+                                global::System.Text.Json.JsonSerializerOptions options
+                            ) =>
+                                {{value}}.TryParse(
+                                    reader.GetString(),
+                                    global::System.Globalization.NumberStyles.Float,
+                                    global::System.Globalization.CultureInfo.InvariantCulture,
+                                    out var value
+                                )
+                                && TryParse(value, out var result)
+                                    ? result
+                                    : throw new global::System.Text.Json.JsonException(OutOfRangeMessage);
+
+                            public override void WriteAsPropertyName(
+                                global::System.Text.Json.Utf8JsonWriter writer,
+                                {{name}} value,
+                                global::System.Text.Json.JsonSerializerOptions options
+                            ) => writer.WritePropertyName(value.ToString());
                         }
                     }
 

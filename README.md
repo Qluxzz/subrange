@@ -38,8 +38,21 @@ The generator adds:
 - `Value`, the static `Min` and `Max`, `OutOfRangeMessage` and `IsInRange`
 - `TryParse(TValue, out T?)` and `Parse(TValue)`, which throws `ArgumentOutOfRangeException`
 - `IParsable<T>` for text, so ASP.NET Core binds route and query values and returns 400 for invalid ones. Text that isn't a number is told apart from a number out of range
-- a JSON converter that accepts only a JSON number within the bounds (not a string, and not a fraction for integer types), writes a bare number, and throws `JsonException`, which ASP.NET Core turns into a 400
+- a JSON converter that accepts only a JSON number within the bounds (not a string, and not a fraction for integer types), writes a bare number, and throws `JsonException`, which ASP.NET Core turns into a 400. It also works as a dictionary key, written as the number's text: `{"443": "https"}`
 - value equality, as for any record
+
+## In ASP.NET Core
+
+Nothing needs registering. Minimal APIs and MVC controllers bind subrange types through `IParsable<T>` and the JSON converter, and reject a value outside the bounds with 400 before the handler runs:
+
+```csharp
+app.MapGet("/ports/{port}", (TcpPort port) => port.Value);    // route: /ports/443
+app.MapGet("/scan", (TcpPort[] ports) => ports.Length);       // query: ?ports=80&ports=443
+// body: {"443": "https"}
+app.MapPost("/services", (Dictionary<TcpPort, string> services) => services.Count);
+```
+
+The same holds for `[FromRoute]`, `[FromQuery]` and `[FromBody]` in controllers. Repeated query values bind to an array, which is the collection type minimal APIs support there; a JSON body can hold them anywhere, including in lists and as dictionary keys or values.
 
 You may add your own members, such as a named constant (`public static TcpPort Https { get; } = Parse(443);`), but not a constructor.
 
@@ -114,7 +127,7 @@ dotnet test
 | Project | Tests |
 |---|---|
 | `tests/Subrange.Tests` | Generated behaviour, and every compile error |
-| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are rejected with 400 before the handler runs, in the route, the query and a JSON body, in minimal APIs and MVC controllers, through a `TestServer` |
+| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are rejected with 400 before the handler runs, in the route, the query, repeated query values and JSON bodies with lists and dictionaries, in minimal APIs and MVC controllers, through a `TestServer` |
 | `tests/Subrange.Swashbuckle.Tests` | The OpenAPI schema `AddSubrangesToSwaggerGen` produces, for parameters and body properties |
 
 `Microsoft.CodeAnalysis.CSharp` must not be newer than the compiler in the SDK that `global.json` pins, or the generator fails to load in consuming projects.

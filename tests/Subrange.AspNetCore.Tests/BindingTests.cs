@@ -13,7 +13,10 @@ public class BindingTests
         {
           "port": 502,
           "fallback": null,
-          "temperature": 21.5
+          "temperature": 21.5,
+          "allowed": [80, 443],
+          "named": { "https": 443 },
+          "services": { "443": "https" }
         }
         """;
 
@@ -56,6 +59,41 @@ public class BindingTests
     }
 
     [Theory]
+    [MemberData(nameof(ListCases))]
+    public async Task RepeatedQueryValues_BindAsAList_EachWithinTheBounds(
+        string style,
+        string query,
+        HttpStatusCode expected
+    )
+    {
+        var client = await TestApp.Start(TestContext.Current.CancellationToken);
+
+        var response = await client.GetAsync(
+            $"{style}/port-lists?{query}",
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Equal(expected, response.StatusCode);
+        if (expected == HttpStatusCode.OK)
+            Assert.Equal(
+                "[80,443]",
+                await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)
+            );
+    }
+
+    public static TheoryData<string, string, HttpStatusCode> ListCases()
+    {
+        var cases = new TheoryData<string, string, HttpStatusCode>();
+        foreach (var style in new[] { "/minimal", "/controller" })
+        {
+            cases.Add(style, "ports=80&ports=443", HttpStatusCode.OK);
+            cases.Add(style, "ports=80&ports=0", HttpStatusCode.BadRequest);
+            cases.Add(style, "ports=80&ports=abc", HttpStatusCode.BadRequest);
+        }
+        return cases;
+    }
+
+    [Theory]
     [MemberData(nameof(TestApp.Styles), MemberType = typeof(TestApp))]
     public async Task ValidBody_ReachesTheHandler(string style)
     {
@@ -67,6 +105,9 @@ public class BindingTests
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("\"port\":502", body);
         Assert.Contains("\"temperature\":21.5", body);
+        Assert.Contains("\"allowed\":[80,443]", body);
+        Assert.Contains("\"named\":{\"https\":443}", body);
+        Assert.Contains("\"services\":{\"443\":\"https\"}", body);
     }
 
     [Theory]
@@ -93,6 +134,9 @@ public class BindingTests
             cases.Add(style, "502", "null");
             cases.Add(style, "21.5", "200.1");
             cases.Add(style, "\"fallback\": null", "\"fallback\": 0");
+            cases.Add(style, "[80, 443]", "[80, 0]");
+            cases.Add(style, "{ \"https\": 443 }", "{ \"https\": 70000 }");
+            cases.Add(style, "{ \"443\": \"https\" }", "{ \"0\": \"none\" }");
         }
         return cases;
     }
