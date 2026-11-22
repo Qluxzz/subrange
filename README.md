@@ -44,6 +44,21 @@ Route, query and JSON body values bind without any registration, and a value out
 app.MapGet("/items", (PageSize pageSize) => pageSize.Value); // ?pageSize=500 is a 400
 ```
 
+## Configuration
+
+Options classes bind subrange values from configuration without any registration. A value outside the bounds fails to bind, with an `InvalidOperationException` naming the configuration key:
+
+```csharp
+public sealed class PagingOptions
+{
+    public PageSize? DefaultPageSize { get; set; } // "Paging:DefaultPageSize": "500" fails to bind
+}
+
+builder.Services.Configure<PagingOptions>(builder.Configuration.GetSection("Paging"));
+```
+
+In a list or dictionary, an out-of-range value is left out rather than failing. This is how the configuration binder treats every element it can't convert, whatever its type: `"abc"` in a `List<int>` is skipped the same way.
+
 ## OpenAPI
 
 [Subrange.Swashbuckle](https://www.nuget.org/packages/Subrange.Swashbuckle) documents every subrange type in Swashbuckle's OpenAPI schemas, with its bounds.

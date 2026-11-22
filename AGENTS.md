@@ -32,7 +32,7 @@ The guarantees every generated type keeps:
 
 - **Parse, don't validate.** The only constructor is private and generated; the only way to get an instance is `Parse`/`TryParse` (or the JSON converter, which calls it). The type is a `sealed record`, not a struct, because a struct's `default` would be a value nobody checked.
 - **Reject, never clamp.** A value outside the bounds is an error. Silently moving it to the nearest bound would change what the caller asked for.
-- **Parse once, at the edge.** The generated `IParsable<T>` and `JsonConverter` are the framework's own boundary hooks, so ASP.NET Core rejects invalid route, query and body values with a 400 before a handler runs. Invalid JSON input throws `JsonException`, never another exception type, because anything else becomes a 500.
+- **Parse once, at the edge.** The generated `IParsable<T>`, `JsonConverter` and `TypeConverter` are the framework's own boundary hooks, so ASP.NET Core rejects invalid route, query and body values with a 400 before a handler runs, and configuration binding fails rather than leaving an options property `null`. Invalid JSON input throws `JsonException`, never another exception type, because anything else becomes a 500.
 - **Keep the published schema honest.** A subrange type is documented as the `integer` or `number` it is on the wire, with the same `minimum` and `maximum` the parser enforces.
 
 # Design decisions
@@ -107,7 +107,7 @@ The generator is built against Roslyn 5.0, so consumers need the .NET 10 SDK or 
 | Project | Tests |
 |---|---|
 | `tests/Subrange.Tests` | Generated behaviour through its public API, and every `SR` diagnostic |
-| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are a 400 before the handler, through a `TestServer`: route, query, repeated query values, and JSON bodies with lists and dictionaries |
+| `tests/Subrange.AspNetCore.Tests` | Values outside the bounds are a 400 before the handler, through a `TestServer`: route, query, repeated query values, and JSON bodies with lists and dictionaries. Also options bound from configuration |
 | `tests/Subrange.Swashbuckle.Tests` | The published OpenAPI schema |
 
 - **Test at the highest level that still reaches the cases.** For binding, that is an HTTP request through `TestServer`; for the schema, the generated OpenAPI document. Drive generated types through `Parse`, `TryParse` and JSON, never their internals.

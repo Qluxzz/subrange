@@ -6,7 +6,7 @@ namespace Subranges.Generators;
 /// <summary>
 /// Completes every valid <c>[Subrange&lt;TValue&gt;]</c> type with its private constructor,
 /// <c>Value</c>, <c>Min</c>/<c>Max</c>, <c>Parse</c>/<c>TryParse</c> for numbers and text,
-/// <c>ToString</c> and JSON converter. Types breaking a rule in
+/// <c>ToString</c>, JSON converter and type converter. Types breaking a rule in
 /// <see cref="SubrangeRules"/> are skipped and reported by <see cref="SubrangeAnalyzer"/>.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
@@ -71,6 +71,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
 
                     /// <remarks>Holds a <see cref="{{value}}"/> {{range}}.</remarks>
                     [global::System.Text.Json.Serialization.JsonConverter(typeof({{name}}.SubrangeJsonConverter))]
+                    [global::System.ComponentModel.TypeConverter(typeof({{name}}.SubrangeTypeConverter))]
                     partial record {{name}} : global::System.IParsable<{{name}}>
                     {
                         // Parsed rather than written as literals, so the same text works for every number type.
@@ -251,6 +252,25 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 {{name}} value,
                                 global::System.Text.Json.JsonSerializerOptions options
                             ) => writer.WritePropertyName(value.ToString());
+                        }
+
+                        // Microsoft.Extensions.Configuration binds text only through a TypeConverter, not IParsable.
+                        // Without one it binds the type as an object with no properties and silently yields null.
+                        private sealed class SubrangeTypeConverter : global::System.ComponentModel.TypeConverter
+                        {
+                            public override bool CanConvertFrom(global::System.ComponentModel.ITypeDescriptorContext? context, global::System.Type sourceType) =>
+                                sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
+
+                            /// <exception cref="global::System.FormatException"><paramref name="value"/> is not a number, or is outside <see cref="Min"/> and <see cref="Max"/>.</exception>
+                            /// <exception cref="global::System.NotSupportedException"><paramref name="value"/> is not a string.</exception>
+                            public override object? ConvertFrom(
+                                global::System.ComponentModel.ITypeDescriptorContext? context,
+                                global::System.Globalization.CultureInfo? culture,
+                                object value
+                            ) =>
+                                value is string text
+                                    ? Parse(text, culture)
+                                    : base.ConvertFrom(context, culture, value);
                         }
                     }
 
