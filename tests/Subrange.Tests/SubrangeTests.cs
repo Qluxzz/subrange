@@ -175,6 +175,66 @@ public class SubrangeTests
         Assert.False(Ratio.TryParse(float.NaN, out _));
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(255)]
+    public void WiderNumbers_WithinTheBounds_AreNarrowed(int value)
+    {
+        Assert.True(Address.TryParse(value, out var address));
+        Assert.Equal(value, address.Value);
+        Assert.Equal((byte)value, Address.Parse((long)value).Value);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(256)]
+    [InlineData(257)]
+    [InlineData(511)]
+    public void WiderNumbers_OutsideTheBounds_AreRejected_NeverWrappedOrSaturated(int value)
+    {
+        Assert.False(Address.TryParse(value, out var result));
+        Assert.Null(result);
+        Assert.Throws<ArgumentOutOfRangeException>(() => Address.Parse(value));
+    }
+
+    [Theory]
+    [InlineData(1.5)]
+    [InlineData(255.5)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void FractionalAndNonFiniteNumbers_AreRejected_NeverRounded(double value)
+    {
+        Assert.False(Address.TryParse(value, out _));
+        Assert.False(Address.TryParse((decimal)(double.IsFinite(value) ? value : 1.5), out _));
+    }
+
+    [Fact]
+    public void AFractionTooSmallForADouble_IsStillRejected()
+    {
+        Assert.False(Address.TryParse(1.0000000000000000000001m, out _));
+    }
+
+    [Fact]
+    public void ACoarserSource_CannotReachTheExtremeItCannotRepresent()
+    {
+        Assert.False(Whole.TryParse(2147483648f, out _));
+        Assert.False(Whole.TryParse(-2147483904f, out _));
+        Assert.True(Whole.TryParse(2147483520f, out var largest));
+        Assert.Equal(2147483520, largest.Value);
+        Assert.True(Whole.TryParse(-2147483648f, out var smallest));
+        Assert.Equal(int.MinValue, smallest.Value);
+    }
+
+    [Fact]
+    public void NarrowerAndFractionalSources_AreConvertedExactly()
+    {
+        Assert.Equal(19.99m, Price.Parse(19.99).Value);
+        Assert.Equal(-50.0, Temperature.Parse(-50).Value);
+        Assert.True(Channel.TryParse((byte)7, out var channel));
+        Assert.Equal((ushort)7, channel.Value);
+    }
+
     [Fact]
     public void Text_IsParsedByTheValueType()
     {
@@ -232,3 +292,6 @@ public sealed partial record Channel;
 
 [Subrange<sbyte>(-10, 10)]
 public sealed partial record Offset;
+
+[Subrange<int>(int.MinValue, int.MaxValue)]
+public sealed partial record Whole;

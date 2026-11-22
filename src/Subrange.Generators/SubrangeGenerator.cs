@@ -105,6 +105,26 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 ? result
                                 : throw new global::System.ArgumentOutOfRangeException(nameof(value), value, OutOfRangeMessage);
 
+                        /// <exception cref="global::System.NotSupportedException"><typeparamref name="TNumber"/> can't be converted to or from <see cref="Value"/>'s type.</exception>
+                        public static bool TryParse<TNumber>(
+                            TNumber value,
+                            [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out {{name}}? result
+                        )
+                            where TNumber : global::System.Numerics.INumberBase<TNumber>
+                        {
+                            result = null;
+                            return TryConvertExactly<TNumber, {{value}}>(value, out var converted)
+                                && TryParse(converted, out result);
+                        }
+
+                        /// <exception cref="global::System.ArgumentOutOfRangeException"><paramref name="value"/> is outside <see cref="Min"/> and <see cref="Max"/>, or isn't exactly a value of <see cref="Value"/>'s type.</exception>
+                        /// <exception cref="global::System.NotSupportedException"><typeparamref name="TNumber"/> can't be converted to or from <see cref="Value"/>'s type.</exception>
+                        public static {{name}} Parse<TNumber>(TNumber value)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber> =>
+                            TryParse(value, out var result)
+                                ? result
+                                : throw new global::System.ArgumentOutOfRangeException(nameof(value), value, OutOfRangeMessage);
+
                         public static bool TryParse(
                             [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? s,
                             global::System.IFormatProvider? provider,
@@ -134,6 +154,20 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                         private static TNumber ParseBound<TNumber>(string text)
                             where TNumber : global::System.Numerics.INumberBase<TNumber> =>
                             TNumber.Parse(text, global::System.Globalization.NumberStyles.Float, global::System.Globalization.CultureInfo.InvariantCulture);
+
+                        // Saturating and converting back rejects values that are out of range, fractional or NaN,
+                        // where truncating would wrap them and saturating alone would clamp them. A source too
+                        // coarse to hold the target's extreme can still saturate onto it and convert back to
+                        // itself, such as 2147483648f onto int.MaxValue, so both are also compared as doubles.
+                        // A double holds every in-range integer exactly, since integer bounds are at most 2^53.
+                        private static bool TryConvertExactly<TNumber, TTarget>(TNumber value, [global::System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TTarget converted)
+                            where TNumber : global::System.Numerics.INumberBase<TNumber>
+                            where TTarget : global::System.Numerics.INumberBase<TTarget>
+                        {
+                            converted = TTarget.CreateSaturating(value);
+                            return TNumber.CreateSaturating(converted) == value
+                                && double.CreateSaturating(value) == double.CreateSaturating(converted);
+                        }
 
                         private static bool TryParseText<TNumber>(string? s, global::System.IFormatProvider? provider, [global::System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TNumber value)
                             where TNumber : global::System.Numerics.INumberBase<TNumber> =>
