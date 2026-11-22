@@ -58,6 +58,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                 var value = model.ValueType;
                 var min = SymbolDisplay.FormatLiteral(model.Min, quote: true);
                 var max = SymbolDisplay.FormatLiteral(model.Max, quote: true);
+                var range = $"from {model.Min} to {model.Max} inclusive";
                 var namespaceLine = model.Namespace is null ? "" : $"namespace {model.Namespace};";
 
                 sourceContext.AddSource(
@@ -68,17 +69,22 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
 
                     {{namespaceLine}}
 
+                    /// <remarks>Holds a <see cref="{{value}}"/> {{range}}.</remarks>
                     [global::System.Text.Json.Serialization.JsonConverter(typeof({{name}}.SubrangeJsonConverter))]
                     partial record {{name}} : global::System.IParsable<{{name}}>
                     {
                         // Parsed rather than written as literals, so the same text works for every number type.
+                        /// <summary>The smallest value allowed: {{model.Min}}.</summary>
                         public static {{value}} Min { get; } = ParseBound<{{value}}>({{min}});
 
+                        /// <summary>The largest value allowed: {{model.Max}}.</summary>
                         public static {{value}} Max { get; } = ParseBound<{{value}}>({{max}});
 
+                        /// <summary>The error message for a value outside {{model.Min}} to {{model.Max}}.</summary>
                         public static string OutOfRangeMessage =>
                             global::System.FormattableString.Invariant($"{{name}} must be between {Min} and {Max}.");
 
+                        /// <summary>The value, always {{range}}.</summary>
                         public {{value}} Value { get; }
 
                         private {{name}}({{value}} value)
@@ -87,9 +93,11 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                         }
 
                         // The bounds are finite, so NaN and infinities fail these comparisons.
+                        /// <summary>Whether <paramref name="value"/> is {{range}}.</summary>
                         public static bool IsInRange({{value}} value) =>
                             value >= Min && value <= Max;
 
+                        /// <summary>Accepts <paramref name="value"/> if it is {{range}}.</summary>
                         public static bool TryParse(
                             {{value}} value,
                             [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out {{name}}? result
@@ -99,12 +107,14 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                             return result is not null;
                         }
 
+                        /// <summary>Accepts <paramref name="value"/> if it is {{range}}.</summary>
                         /// <exception cref="global::System.ArgumentOutOfRangeException"><paramref name="value"/> is outside <see cref="Min"/> and <see cref="Max"/>.</exception>
                         public static {{name}} Parse({{value}} value) =>
                             TryParse(value, out var result)
                                 ? result
                                 : throw new global::System.ArgumentOutOfRangeException(nameof(value), value, OutOfRangeMessage);
 
+                        /// <summary>Accepts <paramref name="value"/> if it is exactly a <see cref="{{value}}"/> {{range}}.</summary>
                         /// <exception cref="global::System.NotSupportedException"><typeparamref name="TNumber"/> can't be converted to or from <see cref="Value"/>'s type.</exception>
                         public static bool TryParse<TNumber>(
                             TNumber value,
@@ -117,6 +127,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 && TryParse(converted, out result);
                         }
 
+                        /// <summary>Accepts <paramref name="value"/> if it is exactly a <see cref="{{value}}"/> {{range}}.</summary>
                         /// <exception cref="global::System.ArgumentOutOfRangeException"><paramref name="value"/> is outside <see cref="Min"/> and <see cref="Max"/>, or isn't exactly a value of <see cref="Value"/>'s type.</exception>
                         /// <exception cref="global::System.NotSupportedException"><typeparamref name="TNumber"/> can't be converted to or from <see cref="Value"/>'s type.</exception>
                         public static {{name}} Parse<TNumber>(TNumber value)
@@ -125,6 +136,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 ? result
                                 : throw new global::System.ArgumentOutOfRangeException(nameof(value), value, OutOfRangeMessage);
 
+                        /// <summary>Accepts <paramref name="s"/> if it is a number {{range}}.</summary>
                         public static bool TryParse(
                             [global::System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? s,
                             global::System.IFormatProvider? provider,
@@ -136,6 +148,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 && TryParse(value, out result);
                         }
 
+                        /// <summary>Accepts <paramref name="s"/> if it is a number {{range}}.</summary>
                         /// <exception cref="global::System.FormatException"><paramref name="s"/> is not a number, or is outside <see cref="Min"/> and <see cref="Max"/>.</exception>
                         public static {{name}} Parse(string s, global::System.IFormatProvider? provider)
                         {
@@ -147,6 +160,7 @@ public sealed class SubrangeGenerator : IIncrementalGenerator
                                 : throw new global::System.FormatException(OutOfRangeMessage);
                         }
 
+                        /// <summary>The value as invariant-culture text.</summary>
                         public override string ToString() =>
                             Value.ToString(null, global::System.Globalization.CultureInfo.InvariantCulture);
 
